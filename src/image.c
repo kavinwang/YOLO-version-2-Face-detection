@@ -11,6 +11,9 @@
 #include "stb_image_write.h"
 
 #ifdef OPENCV
+#include "opencv2/core/fast_math.hpp"
+#include "opencv2/videoio/videoio_c.h"
+#include "opencv2/imgcodecs/imgcodecs_c.h"
 #include "opencv2/highgui/highgui_c.h"
 #include "opencv2/imgproc/imgproc_c.h"
 #endif

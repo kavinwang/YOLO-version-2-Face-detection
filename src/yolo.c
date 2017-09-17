@@ -326,7 +326,7 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
         free_image(im);
         free_image(sized);
 #ifdef OPENCV
-        cvWaitKey(0);
+//        cvWaitKey(0);
         cvDestroyAllWindows();
 #endif
         if (filename) break;
