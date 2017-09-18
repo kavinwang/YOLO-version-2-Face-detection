@@ -7,6 +7,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+void init_attributes();
 void attribute_detections(const image *im, box *boxes);
 #ifdef __cplusplus
 }
