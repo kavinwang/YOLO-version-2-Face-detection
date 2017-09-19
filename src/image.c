@@ -188,7 +188,7 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
         int class = max_index(probs[i], classes);
         float prob = probs[i][class];
         if(prob > thresh){
-            printf("%d/%d: prob %f, thresh %f\n", i, num, prob, thresh);
+            // printf("%d/%d: prob %f, thresh %f\n", i, num, prob, thresh);
 
             int width = 1;
 
