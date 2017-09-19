@@ -8,11 +8,22 @@
 #include <math.h>
 #include "box.h"
 
+#ifdef OPENCV
+#include "opencv2/core/fast_math.hpp"
+#include "opencv2/videoio/videoio_c.h"
+#include "opencv2/imgcodecs/imgcodecs_c.h"
+#include "opencv2/highgui/highgui_c.h"
+#include "opencv2/imgproc/imgproc_c.h"
+#endif
+
 typedef struct {
     int h;
     int w;
     int c;
     float *data;
+#ifdef OPENCV
+    IplImage* src;
+#endif
 } image;
 
 float get_color(int c, int x, int max);

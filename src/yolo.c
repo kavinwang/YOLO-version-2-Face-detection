@@ -10,6 +10,8 @@
 #include "opencv2/highgui/highgui_c.h"
 #endif
 
+#include "attribute_detections.h"
+
 char *voc_names[] = {"face"};
 
 void train_yolo(char *cfgfile, char *weightfile)
@@ -134,9 +136,10 @@ void validate_yolo(char *cfgfile, char *weightfile)
         snprintf(buff, 1024, "%s%s.txt", base, voc_names[j]);
         fps[j] = fopen(buff, "w");
     }
-    box *boxes = calloc(l.side*l.side*l.n, sizeof(box));
-    float **probs = calloc(l.side*l.side*l.n, sizeof(float *));
-    for(j = 0; j < l.side*l.side*l.n; ++j) probs[j] = calloc(classes, sizeof(float *));
+    int boxes_num = l.side*l.side*l.n;
+    box *boxes = calloc(boxes_num, sizeof(box));
+    float **probs = calloc(boxes_num, sizeof(float *));
+    for(j = 0; j < boxes_num; ++j) probs[j] = calloc(classes, sizeof(float *));
 
     int m = plist->size;
     int i=0;
@@ -186,8 +189,8 @@ void validate_yolo(char *cfgfile, char *weightfile)
             int w = val[t].w;
             int h = val[t].h;
             get_detection_boxes(l, w, h, thresh, probs, boxes, 0);
-            if (nms) do_nms_sort(boxes, probs, l.side*l.side*l.n, classes, iou_thresh);
-            print_yolo_detections(fps, id, boxes, probs, l.side*l.side*l.n, classes, w, h);
+            if (nms) do_nms_sort(boxes, probs, boxes_num, classes, iou_thresh);
+            print_yolo_detections(fps, id, boxes, probs, boxes_num, classes, w, h);
             free(id);
             free_image(val[t]);
             free_image(val_resized[t]);
@@ -297,9 +300,10 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
     char *input = buff;
     int j;
     float nms=.4;
-    box *boxes = calloc(l.side*l.side*l.n, sizeof(box));
-    float **probs = calloc(l.side*l.side*l.n, sizeof(float *));
-    for(j = 0; j < l.side*l.side*l.n; ++j) probs[j] = calloc(l.classes, sizeof(float *));
+    int boxes_num = l.side*l.side*l.n;
+    box *boxes = calloc(boxes_num, sizeof(box));
+    float **probs = calloc(boxes_num, sizeof(float *));
+    for(j = 0; j < boxes_num; ++j) probs[j] = calloc(l.classes, sizeof(float *));
     while(1){
         if(filename){
             strncpy(input, filename, 256);
@@ -317,10 +321,10 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
         network_predict(net, X);
         printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
         get_detection_boxes(l, 1, 1, thresh, probs, boxes, 0);
-        attribute_detections(&im, boxes);
-        if (nms) do_nms_sort(boxes, probs, l.side*l.side*l.n, l.classes, nms);
-        //draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 20);
-        draw_detections(im, l.side*l.side*l.n, thresh, boxes, probs, voc_names, alphabet, 1);
+        if (nms) do_nms_sort(boxes, probs, boxes_num, l.classes, nms);
+        attribute_detections(&im, thresh, boxes, probs, boxes_num);
+        //draw_detections(im, boxes_num, thresh, boxes, probs, voc_names, alphabet, 20);
+        draw_detections(im, boxes_num, thresh, boxes, probs, voc_names, alphabet, 1);
         save_image(im, "predictions");
         show_image(im, "predictions");
 

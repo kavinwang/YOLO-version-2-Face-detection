@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 void init_attributes();
-void attribute_detections(const image *im, box *boxes);
+void attribute_detections(const image *im, float thresh, box *boxes, float **probs, int num);
 #ifdef __cplusplus
 }
 #endif

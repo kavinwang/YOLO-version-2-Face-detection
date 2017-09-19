@@ -188,6 +188,7 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
         int class = max_index(probs[i], classes);
         float prob = probs[i][class];
         if(prob > thresh){
+            printf("%d/%d: prob %f, thresh %f\n", i, num, prob, thresh);
 
             int width = 1;
 
@@ -386,6 +387,7 @@ void normalize_image2(image p)
 image copy_image(image p)
 {
     image copy = p;
+    copy.src = NULL;
     copy.data = calloc(p.h*p.w*p.c, sizeof(float));
     memcpy(copy.data, p.data, p.h*p.w*p.c*sizeof(float));
     return copy;
@@ -497,8 +499,9 @@ image load_image_cv(char *filename, int channels)
         //exit(0);
     }
     image out = ipl_to_image(src);
-    cvReleaseImage(&src);
+//    cvReleaseImage(&src);
     rgbgr_image(out);
+    out.src = src;
     return out;
 }
 
@@ -588,6 +591,7 @@ image make_empty_image(int w, int h, int c)
     out.h = h;
     out.w = w;
     out.c = c;
+    out.src = NULL;
     return out;
 }
 
@@ -1354,5 +1358,8 @@ void free_image(image m)
 {
     if(m.data){
         free(m.data);
+    }
+    if(m.src) {
+        cvReleaseImage(&m.src);
     }
 }
