@@ -33,13 +33,16 @@ CAFFE2_DEFINE_int(size_to_fit, 224, "The image file.");
 
 caffe2::Predictor *predictor;
 
-void attribute_detections_internal(const cv::Mat &image);
+char *attribute_detections_internal(const cv::Mat &image);
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-void attribute_detections(const image *im, float thresh, box *boxes, float **probs, int num)
+void attribute_detections(const image *im, float thresh, box *boxes, float **probs, int num,
+                          box **out_boxes, char **out_labels, int *detections_num)
 {
+    int detected = 0;
+
     assert(im->src);
     cv::Mat m = cv::cvarrToMat(im->src);
 
@@ -49,7 +52,7 @@ void attribute_detections(const image *im, float thresh, box *boxes, float **pro
         if(prob > thresh){
             // printf("%d/%d: prob %f, thresh %f\n", i, num, prob, thresh);
 
-            const box *b = &boxes[i];
+            box *b = &boxes[i];
 
             int left  = (b->x-b->w/2.)*im->w;
             int right = (b->x+b->w/2.)*im->w;
@@ -66,15 +69,23 @@ void attribute_detections(const image *im, float thresh, box *boxes, float **pro
 
             auto subimage = m(r);
 
-            attribute_detections_internal(subimage);
+            char *label = attribute_detections_internal(subimage);
+            assert(label);
+
+            out_labels[detected] = label;
+            out_boxes[detected] = b;
+
+            detected++;
         }
     }
+
+    *detections_num = detected;
 }
 #ifdef __cplusplus
 }
 #endif
 
-void attribute_detections_internal(const cv::Mat &image)
+char *attribute_detections_internal(const cv::Mat &image)
 {
   std::cout << "image size: " << image.size() << std::endl;
 
@@ -126,6 +137,8 @@ void attribute_detections_internal(const cv::Mat &image)
   int idx = (probs[0] > probs[1] ? 0 : 1);
 
   std::cout << classes[idx] << " (" << probs[idx] * 100 << "%)" << std::endl;
+
+  return strdup(classes[idx]);
 }
 
 void init_attributes()

@@ -322,11 +322,19 @@ void test_yolo(char *cfgfile, char *weightfile, char *filename, float thresh)
         printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
         get_detection_boxes(l, 1, 1, thresh, probs, boxes, 0);
         if (nms) do_nms_sort(boxes, probs, boxes_num, l.classes, nms);
-        attribute_detections(&im, thresh, boxes, probs, boxes_num);
+        int detections_num = 0;
+        box **out_boxes = calloc(boxes_num, sizeof(box*));
+        char **out_labels = calloc(boxes_num, sizeof(char*));
+        attribute_detections(&im, thresh, boxes, probs, boxes_num, out_boxes, out_labels, &detections_num);
         //draw_detections(im, boxes_num, thresh, boxes, probs, voc_names, alphabet, 20);
-        draw_detections(im, boxes_num, thresh, boxes, probs, voc_names, alphabet, 1);
+        draw_detections_simple(im, detections_num, out_boxes, out_labels, alphabet);
         save_image(im, "predictions");
         show_image(im, "predictions");
+
+        free(out_boxes);
+        for(int i=0;i<boxes_num;i++)
+            free(out_labels[i]);
+        free(out_labels);
 
         free_image(im);
         free_image(sized);
