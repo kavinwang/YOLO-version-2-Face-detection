@@ -24,14 +24,10 @@
 using namespace std;
 using namespace caffe2;
 
-CAFFE2_DEFINE_string(init_net, "/Users/evgenybaskakov/Dropbox (Personal)/caffe2_gender/init_net.pb",
-                     "The given path to the init protobuffer.");
-CAFFE2_DEFINE_string(predict_net, "/Users/evgenybaskakov/Dropbox (Personal)/caffe2_gender/predict_net.pb",
-                     "The given path to the predict protobuffer.");
-// CAFFE2_DEFINE_string(image_file, "/Users/evgenybaskakov/Dropbox (Personal)/people_portraits/male2.jpg", "The image file.");
 CAFFE2_DEFINE_int(size_to_fit, 224, "The image file.");
 
-caffe2::Predictor *predictor;
+caffe2::Predictor *gender_predictor;
+caffe2::Predictor *age_predictor;
 
 char *attribute_detections_internal(const cv::Mat &image);
 
@@ -124,55 +120,128 @@ char *attribute_detections_internal(const cv::Mat &image)
   std::vector<TIndex> dims({1, cropped_image.channels(), cropped_image.rows, cropped_image.cols});
   TensorCPU input(dims, data, NULL);
 
-  // >>> results = p.run([img])
-  Predictor::TensorVector inputVec({&input}), outputVec;
-  predictor->run(inputVec, &outputVec);
-  auto &output = *(outputVec[0]);
+  const char *gender_names[] = {"Female", "Male"};
+  int gender_class = 0;
 
-  // sort top results
-  const auto &probs = output.data<float>();
-  assert(output.size() == 2);
-  const char *classes[] = {"Female", "Male"};
+  {
+    // Predict gender.
+    Predictor::TensorVector inputVec({&input}), outputVec;
 
-  int idx = (probs[0] > probs[1] ? 0 : 1);
+    gender_predictor->run(inputVec, &outputVec);
+    auto &gender_output = *(outputVec[0]);
 
-  std::cout << classes[idx] << " (" << probs[idx] * 100 << "%)" << std::endl;
+    const auto &gender_probs = gender_output.data<float>();
+    assert(gender_output.size() == 2);
+    
+    gender_class = (gender_probs[0] > gender_probs[1] ? 0 : 1);
+    std::cout << gender_names[gender_class] << " (" << gender_probs[gender_class] * 100 << "%)" << std::endl;
+  }
 
-  return strdup(classes[idx]);
+  char age_range_str[256];
+
+  {
+    // Predict age.
+    Predictor::TensorVector inputVec({&input}), outputVec;
+
+    age_predictor->run(inputVec, &outputVec);
+    auto &age_output = *(outputVec[0]);
+
+    const auto &age_probs = age_output.data<float>();
+
+    float age_prob_threshold = 0.08;
+    float age_max_prob = 0.0;
+    int age_max_i = 0;
+    for (auto i = 0; i < age_output.size(); i++) {
+      if (age_probs[i] > age_max_prob) {
+        age_max_prob = age_probs[i];
+        age_max_i = i;
+      }
+    }
+
+    const int age_range = 6;
+    int age_left = age_max_i;
+    int age_right = age_max_i;
+    while (age_left > 0 && age_max_i - age_left < age_range/2 && fabs(age_probs[age_left-1] - age_max_prob) < age_prob_threshold)
+      age_left--;
+    while (age_right+1 < age_output.size() && age_right - age_max_i < age_range/2 && fabs(age_probs[age_right+1] - age_max_prob) < age_prob_threshold)
+      age_right++;
+
+    if (age_left == age_right)
+      std::cout << age_max_i << " yo: " << age_max_prob * 100 << "%" << std::endl;
+    else
+      std::cout << age_left << "-" << age_right << " yo: " << age_max_prob * 100 << "%" << std::endl;
+
+    if (age_left == age_right)
+      sprintf(age_range_str, "%d", age_max_i);
+    else
+      sprintf(age_range_str, "%d-%d", age_left, age_right);
+  }
+
+  char buf[256];
+  sprintf(buf, "%s, %s yo", gender_names[gender_class], age_range_str);
+  return strdup(buf);
 }
 
-void init_attributes()
+static void init_gender_net()
 {
-  if (!std::ifstream(FLAGS_init_net).good() ||
-      !std::ifstream(FLAGS_predict_net).good()) {
-    std::cerr << "error: Squeezenet model file missing: "
-              << (std::ifstream(FLAGS_init_net).good() ? FLAGS_predict_net
-                                                       : FLAGS_init_net)
-              << std::endl;
-    std::cerr << "Make sure to first run ./script/download_resource.sh"
+  std::cout << "Initializing Caffe2 gender prediction net" << std::endl;
+
+  std::string name_init_net = "/Users/evgenybaskakov/Dropbox (Personal)/caffe2_gender/init_net.pb";
+  std::string name_predict_net = "/Users/evgenybaskakov/Dropbox (Personal)/caffe2_gender/predict_net.pb";
+
+  if (!std::ifstream(name_init_net).good() || !std::ifstream(name_predict_net).good()) {
+    std::cerr << "error: model file missing: "
+              << (std::ifstream(name_init_net).good() ? name_predict_net : name_init_net)
               << std::endl;
     abort();
   }
 
-  std::cout << "init_net: " << FLAGS_init_net << std::endl;
-  std::cout << "predict_net: " << FLAGS_predict_net << std::endl;
+  std::cout << "init_net: " << name_init_net << std::endl;
+  std::cout << "predict_net: " << name_predict_net << std::endl;
   std::cout << "size_to_fit: " << FLAGS_size_to_fit << std::endl;
 
-  std::cout << std::endl;
-
-  // Load the model
   NetDef init_net, predict_net;
 
-  // >>> with open(path_to_INIT_NET) as f:
-  CAFFE_ENFORCE(ReadProtoFromFile(FLAGS_init_net, &init_net));
+  CAFFE_ENFORCE(ReadProtoFromFile(name_init_net, &init_net));
+  CAFFE_ENFORCE(ReadProtoFromFile(name_predict_net, &predict_net));
 
-  // >>> with open(path_to_PREDICT_NET) as f:
-  CAFFE_ENFORCE(ReadProtoFromFile(FLAGS_predict_net, &predict_net));
-
-  // >>> p = workspace.Predictor(init_net, predict_net)
-  predict_net.set_name("PredictNet");
+  predict_net.set_name("GenderPredictionNet");
   
-  predictor = new Predictor(init_net, predict_net);
+  gender_predictor = new Predictor(init_net, predict_net);
+}
+
+static void init_age_net()
+{
+  std::cout << "Initializing Caffe2 age prediction net" << std::endl;
+
+  std::string name_init_net = "/Users/evgenybaskakov/Dropbox (Personal)/caffe2_age/init_net.pb";
+  std::string name_predict_net = "/Users/evgenybaskakov/Dropbox (Personal)/caffe2_age/predict_net.pb";
+
+  if (!std::ifstream(name_init_net).good() || !std::ifstream(name_predict_net).good()) {
+    std::cerr << "error: model file missing: "
+              << (std::ifstream(name_init_net).good() ? name_predict_net : name_init_net)
+              << std::endl;
+    abort();
+  }
+
+  std::cout << "init_net: " << name_init_net << std::endl;
+  std::cout << "predict_net: " << name_predict_net << std::endl;
+  std::cout << "size_to_fit: " << FLAGS_size_to_fit << std::endl;
+
+  NetDef init_net, predict_net;
+
+  CAFFE_ENFORCE(ReadProtoFromFile(name_init_net, &init_net));
+  CAFFE_ENFORCE(ReadProtoFromFile(name_predict_net, &predict_net));
+
+  predict_net.set_name("AgePredictionNet");
+  
+  age_predictor = new Predictor(init_net, predict_net);
+}
+
+void init_attributes()
+{
+  init_gender_net();
+  init_age_net();
 
   std::cout << "Caffe2 model initialized" << std::endl;
 }
