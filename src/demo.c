@@ -81,7 +81,26 @@ void *detect_in_thread(void *ptr)
     det = images[(demo_index + FRAMES/2 + 1)%FRAMES];
     demo_index = (demo_index + 1)%FRAMES;
 
-    draw_detections(det, l.w*l.h*l.n, demo_thresh, boxes, probs, demo_names, demo_alphabet, demo_classes);
+    if(det.w == 1 || det.h == 1) {
+        printf("skip fake image\n");
+    }
+    else {
+    //    draw_detections(det, l.w*l.h*l.n, demo_thresh, boxes, probs, demo_names, demo_alphabet, demo_classes);
+
+        int boxes_num = l.w*l.h*l.n;
+        int detections_num = 0;
+        box **out_boxes = calloc(boxes_num, sizeof(box*));
+        char **out_labels = calloc(boxes_num, sizeof(char*));
+
+        attribute_detections(&det, demo_thresh, boxes, probs, boxes_num, out_boxes, out_labels, &detections_num);
+        //draw_detections(det, boxes_num, demo_thresh, boxes, probs, voc_names, demo_alphabet, demo_classes);
+        draw_detections_simple(det, detections_num, out_boxes, out_labels, demo_alphabet);
+
+        free(out_boxes);
+        for(int i=0;i<boxes_num;i++)
+            free(out_labels[i]);
+        free(out_labels);
+    }
 
     return 0;
 }

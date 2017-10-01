@@ -547,6 +547,7 @@ image get_image_from_stream(CvCapture *cap)
     IplImage* src = cvQueryFrame(cap);
     if (!src) return make_empty_image(0,0,0);
     image im = ipl_to_image(src);
+    im.src = src;
     rgbgr_image(im);
     return im;
 }
@@ -1103,6 +1104,7 @@ float bilinear_interpolate(image im, float x, float y, int c)
 
 image resize_image(image im, int w, int h)
 {
+/*
     image resized = make_image(w, h, im.c);   
     image part = make_image(w, im.h, im.c);
     int r, c, k;
@@ -1143,6 +1145,16 @@ image resize_image(image im, int w, int h)
 
     free_image(part);
     return resized;
+*/
+
+    IplImage *src = im.src;
+    assert(src);
+    IplImage* new_img = cvCreateImage(cvSize(w, h), src->depth, src->nChannels);
+    cvResize(src, new_img, CV_INTER_LINEAR);
+    image out = ipl_to_image(new_img);
+    //rgbgr_image(out);
+    out.src = new_img;
+    return out;
 }
 
 
